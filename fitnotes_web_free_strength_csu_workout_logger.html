@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="FitNotes">
+    <title>FitNotes — Strength & Workout Log</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js for crisp offline-capable rest timer chimes -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        fn: {
+                            bg: '#0b0f17',
+                            card: '#131926',
+                            elevated: '#1b2336',
+                            border: '#242f47',
+                            accent: '#0ea5e9',
+                            teal: '#14b8a6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * {
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background-color: #0b0f17;
+            color: #f1f5f9;
+            overscroll-behavior-y: none;
+        }
+        /* Hide number input arrows for clean FitNotes stepper look */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        /* Safe area padding for iOS Home Screen PWA */
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom, 12px);
+        }
+        .pt-safe {
+            padding-top: env(safe-area-inset-top, 0px);
+        }
+    </style>
+</head>
+<body class="font-sans antialiased min-h-screen flex flex-col select-none">
+
+    <!-- ========================================================= -->
+    <!-- TOP HEADER (FitNotes Style Date Navigation & Quick Actions) -->
+    <!-- ========================================================= -->
+    <header class="sticky top-0 z-30 bg-fn-card/95 backdrop-blur-md border-b border-fn-border pt-safe">
+        <!-- Main Workout Header (Visible on 'workout' tab) -->
+        <div id="header-workout" class="max-w-2xl mx-auto px-3 py-2.5 flex items-center justify-between gap-2">
+            <!-- Left: Date Navigation -->
+            <div class="flex items-center gap-1">
+                <button onclick="shiftDate(-1)" aria-label="Previous Day" class="p-2 rounded-xl hover:bg-fn-elevated active:scale-90 text-slate-300 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                <button onclick="openDatePickerModal()" class="px-2.5 py-1.5 rounded-xl hover:bg-fn-elevated transition text-left">
+                    <div id="header-date-main" class="text-sm sm:text-base font-extrabold text-white tracking-tight leading-tight">Today</div>
+                    <div id="header-date-sub" class="text-[11px] font-medium text-sky-400 leading-tight">Saturday, Nov 14</div>
+                </button>
+                <button onclick="shiftDate(1)" aria-label="Next Day" class="p-2 rounded-xl hover:bg-fn-elevated active:scale-90 text-slate-300 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- Right: FitNotes Action Buttons (+ Add Exercise, Routines/Copy Menu) -->
+            <div class="flex items-center gap-1.5">
+                <button onclick="openExercisePicker()" title="Add Exercise to Workout" class="flex items-center gap-1 px-3 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 active:scale-95 text-white text-xs font-bold shadow-sm transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.6" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    <span>Exercise</span>
+                </button>
+                <button onclick="openDayActionsModal()" title="Load Routine or Copy Workout" class="p-2 rounded-xl bg-fn-elevated hover:bg-slate-700 active:scale-95 border border-fn-border text-slate-200 transition">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Secondary Header for non-workout tabs -->
+        <div id="header-secondary" class="hidden max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div>
+                <h1 id="secondary-title" class="text-base font-extrabold text-white">Routines</h1>
+                <p id="secondary-subtitle" class="text-xs text-slate-400">Load your CSU-Safe split in 1 tap</p>
+            </div>
+            <button id="secondary-action-btn" class="hidden px-3 py-1.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition">
+                + New
+            </button>
+        </div>
+
+        <!-- Compact Daily Summary & Rest Timer Strip -->
+        <div id="rest-timer-strip" class="bg-fn-bg/90 border-t border-fn-border/80">
+            <div class="max-w-2xl mx-auto px-3 py-1.5 flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2">
+                    <span class="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-teal-500/15 text-teal-400">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </span>
+                    <span id="rest-display" class="font-mono text-sm font-extrabold text-teal-400">02:30</span>
+                    <span id="rest-label" class="text-[11px] text-slate-400 hidden sm:inline">CSU Cooling Rest</span>
+                </div>
+
+                <div class="flex items-center gap-1">
+                    <button id="rest-toggle-btn" onclick="toggleRestTimer()" class="px-2.5 py-1 rounded-lg bg-teal-600 hover:bg-teal-500 active:scale-95 text-white text-[11px] font-bold transition">
+                        Start
+                    </button>
+                    <button onclick="setRestPreset(90)" class="px-2 py-1 rounded-lg bg-fn-elevated hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition">1:30</button>
+                    <button onclick="setRestPreset(150)" class="px-2 py-1 rounded-lg bg-fn-elevated hover:bg-slate-700 text-teal-300 border border-teal-800/50 text-[11px] font-semibold transition">2:30</button>
+                    <button onclick="setRestPreset(180)" class="px-2 py-1 rounded-lg bg-fn-elevated hover:bg-slate-700 text-slate-300 text-[11px] font-semibold transition">3:00</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========================================================= -->
+    <!-- MAIN VIEWPORT AREA                                        -->
+    <!-- ========================================================= -->
+    <main class="flex-1 max-w-2xl w-full mx-auto px-3 pt-3 pb-24">
+
+        <!-- VIEW 1: DAILY WORKOUT LOG -->
+        <section id="view-workout" class="space-y-3">
+            <!-- Daily Stats Summary Bar -->
+            <div class="bg-fn-card border border-fn-border rounded-2xl px-3.5 py-2.5 flex items-center justify-between text-xs">
+                <div class="flex items-center gap-4">
+                    <div>
+                        <span class="text-slate-400 block text-[10px] uppercase font-semibold">Exercises</span>
+                        <span id="stat-exercises" class="font-bold text-white text-sm">0</span>
+                    </div>
+                    <div class="h-6 w-px bg-fn-border"></div>
+                    <div>
+                        <span class="text-slate-400 block text-[10px] uppercase font-semibold">Sets Logged</span>
+                        <span id="stat-sets" class="font-bold text-sky-400 text-sm">0</span>
+                    </div>
+                    <div class="h-6 w-px bg-fn-border"></div>
+                    <div>
+                        <span class="text-slate-400 block text-[10px] uppercase font-semibold">Total Volume</span>
+                        <span id="stat-volume" class="font-bold text-teal-400 text-sm">0 kg</span>
+                    </div>
+                </div>
+                <button onclick="openCsuReminderModal()" class="px-2.5 py-1.5 rounded-xl bg-teal-950/60 hover:bg-teal-900/60 border border-teal-800/60 text-teal-300 text-[11px] font-semibold flex items-center gap-1 transition">
+                    <span>🛡️ CSU Guide</span>
+                </button>
+            </div>
+
+            <!-- Exercise Cards List -->
+            <div id="workout-cards-container" class="space-y-3">
+                <!-- Rendered dynamically -->
+            </div>
+
+            <!-- Empty State when no exercises logged on selected date -->
+            <div id="workout-empty-state" class="hidden bg-fn-card border border-fn-border rounded-2xl p-6 text-center space-y-4">
+                <div class="w-12 h-12 rounded-2xl bg-sky-500/10 text-sky-400 flex items-center justify-center mx-auto">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white">No Workout Logged for This Day</h3>
+                    <p class="text-xs text-slate-400 mt-1">Start fresh by adding an exercise, or load one of your saved CSU-Safe cutting routines in one tap.</p>
+                </div>
+
+                <!-- Quick 1-Tap Routine Loader Buttons -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    <button onclick="loadRoutineIntoDate('routine_pull')" class="p-3 rounded-xl bg-fn-elevated hover:bg-slate-800 border border-fn-border text-left transition active:scale-95">
+                        <span class="text-xs font-extrabold text-sky-400 block">Pull Day</span>
+                        <span class="text-[11px] text-slate-400">Mon / Thu • 5 exercises</span>
+                    </button>
+                    <button onclick="loadRoutineIntoDate('routine_push')" class="p-3 rounded-xl bg-fn-elevated hover:bg-slate-800 border border-fn-border text-left transition active:scale-95">
+                        <span class="text-xs font-extrabold text-teal-400 block">Push Day</span>
+                        <span class="text-[11px] text-slate-400">Tue / Fri • 5 exercises</span>
+                    </button>
+                    <button onclick="loadRoutineIntoDate('routine_legs')" class="p-3 rounded-xl bg-fn-elevated hover:bg-slate-800 border border-fn-border text-left transition active:scale-95">
+                        <span class="text-xs font-extrabold text-amber-400 block">Leg Day</span>
+                        <span class="text-[11px] text-slate-400">Wed • 5 exercises</span>
+                    </button>
+                </div>
+
+                <div class="pt-1">
+                    <button onclick="openExercisePicker()" class="px-4 py-2.5 rounded-xl bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold transition">
+                        + Add Single Exercise
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- VIEW 2: SAVED ROUTINES -->
+        <section id="view-routines" class="hidden space-y-3">
+            <div id="routines-list-container" class="space-y-3">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+
+        <!-- VIEW 3: EXERCISE DATABASE & PROGRESS -->
+        <section id="view-exercises" class="hidden space-y-3">
+            <!-- Search & Category Filter -->
+            <div class="space-y-2">
+                <input type="text" id="db-search-input" oninput="renderExerciseDatabase()" placeholder="Search exercises (e.g., Lat Pulldown, Bench)..."
+                    class="w-full px-3.5 py-2.5 rounded-xl bg-fn-card border border-fn-border focus:border-sky-500 focus:outline-none text-sm text-white placeholder-slate-500">
+                <div id="db-category-pills" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+                    <!-- Rendered dynamically -->
+                </div>
+            </div>
+
+            <div id="db-exercises-list" class="space-y-2">
+                <!-- Rendered dynamically -->
+            </div>
+        </section>
+
+        <!-- VIEW 4: BACKUP, CSV EXPORT & SETTINGS -->
+        <section id="view-backup" class="hidden space-y-4">
+            <div class="bg-fn-card border border-fn-border rounded-2xl p-4 space-y-3">
+                <h2 class="text-sm font-extrabold text-white">FitNotes CSV & JSON Backup</h2>
+                <p class="text-xs text-slate-400 leading-relaxed">
+                    All your workouts are saved 100% locally on your iPhone browser. Export a FitNotes-compatible CSV spreadsheet or full JSON backup anytime so your training history is never lost.
+                </p>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+                    <button onclick="exportCSV()" class="px-4 py-3 rounded-xl bg-sky-600 hover:bg-sky-500 active:scale-95 text-white text-xs font-bold flex items-center justify-center gap-2 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                        </svg>
+                        <span>Export FitNotes CSV</span>
+                    </button>
+
+                    <button onclick="exportJSON()" class="px-4 py-3 rounded-xl bg-fn-elevated hover:bg-slate-700 active:scale-95 border border-fn-border text-slate-200 text-xs font-bold flex items-center justify-center gap-2 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/>
+                        </svg>
+                        <span>Export Full JSON Backup</span>
+                    </button>
+                </div>
+
+                <div class="pt-3 border-t border-fn-border">
+                    <label class="block text-xs font-bold text-slate-300 mb-1.5">Restore / Import Backup (JSON or FitNotes CSV)</label>
+                    <input type="file" id="import-file-input" accept=".json,.csv" onchange="handleImportFile(event)"
+                        class="block w-full text-xs text-slate-400 file:mr-3 file:py-2 file:px-3.5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-teal-600 file:text-white hover:file:bg-teal-500 cursor-pointer">
+                </div>
+            </div>
+
+            <!-- iOS Safari Home Screen Install Guide -->
+            <div class="bg-fn-card border border-fn-border rounded-2xl p-4 space-y-2">
+                <h3 class="text-sm font-extrabold text-teal-400">Install on iPhone Home Screen (Free App Mode)</h3>
+                <ol class="text-xs text-slate-300 space-y-1.5 list-decimal list-inside leading-relaxed">
+                    <li>Open this page in <strong>Safari</strong> on your iPhone.</li>
+                    <li>Tap the <strong>Share</strong> button (square with upward arrow) at the bottom of Safari.</li>
+                    <li>Scroll down and tap <strong>"Add to Home Screen"</strong>.</li>
+                    <li>Launch <strong>FitNotes</strong> from your Home Screen—it runs full-screen offline with zero subscription fees.</li>
+                </ol>
+            </div>
+
+            <!-- Danger Zone -->
+            <div class="bg-fn-card border border-rose-900/40 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                    <h4 class="text-xs font-bold text-rose-400">Reset All App Data</h4>
+                    <p class="text-[11px] text-slate-400">Clears workout logs and restores default CSU routines</p>
+                </div>
+                <button onclick="confirmFactoryReset()" class="px-3 py-2 rounded-xl bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800/50 text-xs font-bold transition">
+                    Reset
+                </button>
+            </div>
+        </section>
+    </main>
+
+    <!-- ========================================================= -->
+    <!-- BOTTOM NAVIGATION BAR (FitNotes Style 4-Tab Bar)          -->
+    <!-- ========================================================= -->
+    <nav class="fixed bottom-0 inset-x-0 z-30 bg-fn-card/95 backdrop-blur-md border-t border-fn-border pb-safe">
+        <div class="max-w-2xl mx-auto grid grid-cols-4">
+            <button onclick="switchTab('workout')" id="nav-workout" class="py-2.5 flex flex-col items-center justify-center gap-0.5 text-sky-400 font-bold transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                <span class="text-[10px]">Workout</span>
+            </button>
+
+            <button onclick="switchTab('routines')" id="nav-routines" class="py-2.5 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-slate-200 font-medium transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+                <span class="text-[10px]">Routines</span>
+            </button>
+
+            <button onclick="switchTab('exercises')" id="nav-exercises" class="py-2.5 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-slate-200 font-medium transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/>
+                </svg>
+                <span class="text-[10px]">Exercises</span>
+            </button>
+
+            <button onclick="switchTab('backup')" id="nav-backup" class="py-2.5 flex flex-col items-center justify-center gap-0.5 text-slate-400 hover:text-slate-200 font-medium transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"/>
+                </svg>
+                <span class="text-[10px]">Backup</span>
+            </button>
+        </div>
+    </nav>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 1: FITNOTES EXERCISE DETAIL MODAL (TRACK/HIST/GRAPH)-->
+    <!-- ========================================================= -->
+    <div id="modal-exercise-detail" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm">
+        <div class="bg-fn-card border border-fn-border rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[90vh] flex flex-col overflow-hidden shadow-2xl">
+            <!-- Modal Header -->
+            <div class="px-4 py-3.5 border-b border-fn-border flex items-center justify-between">
+                <div>
+                    <span id="detail-ex-category" class="text-[10px] uppercase tracking-wider font-bold text-sky-400">Back</span>
+                    <h2 id="detail-ex-name" class="text-base font-extrabold text-white">Lat Pulldown</h2>
+                </div>
+                <button onclick="closeModal('modal-exercise-detail')" class="p-2 rounded-xl bg-fn-elevated text-slate-300 hover:text-white">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+
+            <!-- FitNotes 3-Tab Switcher (Track | History | Graph) -->
+            <div class="grid grid-cols-3 bg-fn-bg border-b border-fn-border text-xs font-bold">
+                <button onclick="switchDetailTab('track')" id="dtab-track" class="py-2.5 border-b-2 border-sky-500 text-sky-400 transition">TRACK</button>
+                <button onclick="switchDetailTab('history')" id="dtab-history" class="py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">HISTORY</button>
+                <button onclick="switchDetailTab('graph')" id="dtab-graph" class="py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">GRAPH</button>
+            </div>
+
+            <!-- Modal Body -->
+            <div class="p-4 overflow-y-auto flex-1 space-y-4">
+                <!-- TAB A: TRACK (Quick FitNotes Stepper) -->
+                <div id="dpanel-track" class="space-y-4">
+                    <div id="detail-csu-tip" class="px-3 py-2 rounded-xl bg-teal-950/50 border border-teal-800/50 text-xs text-teal-200">
+                        ❄️ Tip: Keep AC airflow nearby and pat sweat dry gently.
+                    </div>
+
+                    <!-- Weight Stepper -->
+                    <div class="bg-fn-bg border border-fn-border rounded-2xl p-3">
+                        <label id="detail-weight-label" class="block text-[11px] uppercase tracking-wider font-bold text-slate-400 text-center mb-2">Weight (kg)</label>
+                        <div class="flex items-center justify-between gap-2">
+                            <button onclick="stepDetailValue('weight', -2.5)" class="w-14 h-12 rounded-xl bg-fn-elevated hover:bg-slate-700 active:scale-95 text-lg font-extrabold text-slate-200">-2.5</button>
+                            <input type="number" step="0.5" id="detail-weight-input" value="40" class="w-28 text-center text-2xl font-extrabold bg-transparent text-white focus:outline-none">
+                            <button onclick="stepDetailValue('weight', 2.5)" class="w-14 h-12 rounded-xl bg-fn-elevated hover:bg-slate-700 active:scale-95 text-lg font-extrabold text-sky-400">+2.5</button>
+                        </div>
+                    </div>
+
+                    <!-- Reps / Duration Stepper -->
+                    <div class="bg-fn-bg border border-fn-border rounded-2xl p-3">
+                        <label id="detail-reps-label" class="block text-[11px] uppercase tracking-wider font-bold text-slate-400 text-center mb-2">Reps</label>
+                        <div class="flex items-center justify-between gap-2">
+                            <button onclick="stepDetailValue('reps', -1)" class="w-14 h-12 rounded-xl bg-fn-elevated hover:bg-slate-700 active:scale-95 text-lg font-extrabold text-slate-200">-1</button>
+                            <input type="number" id="detail-reps-input" value="10" class="w-28 text-center text-2xl font-extrabold bg-transparent text-white focus:outline-none">
+                            <button onclick="stepDetailValue('reps', 1)" class="w-14 h-12 rounded-xl bg-fn-elevated hover:bg-slate-700 active:scale-95 text-lg font-extrabold text-sky-400">+1</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5 pt-1">
+                        <button onclick="saveSetFromDetailModal()" class="py-3 rounded-xl bg-sky-600 hover:bg-sky-500 active:scale-95 text-white text-xs font-extrabold shadow-md transition">
+                            Save Set to Today
+                        </button>
+                        <button onclick="clearDetailInputs()" class="py-3 rounded-xl bg-fn-elevated hover:bg-slate-700 text-slate-300 text-xs font-bold transition">
+                            Clear
+                        </button>
+                    </div>
+
+                    <!-- Today's Logged Sets for this Exercise -->
+                    <div class="pt-2">
+                        <h4 class="text-xs font-bold text-slate-400 uppercase mb-2">Today's Sets</h4>
+                        <div id="detail-today-sets" class="space-y-1.5"></div>
+                    </div>
+                </div>
+
+                <!-- TAB B: HISTORY -->
+                <div id="dpanel-history" class="hidden space-y-2.5">
+                    <div id="detail-history-list" class="space-y-2.5"></div>
+                </div>
+
+                <!-- TAB C: GRAPH (SVG Progress Chart) -->
+                <div id="dpanel-graph" class="hidden space-y-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-300">Progression Over Time</span>
+                        <select id="graph-metric-select" onchange="renderDetailGraph()" class="px-2.5 py-1 rounded-lg bg-fn-elevated border border-fn-border text-xs text-sky-400 font-bold focus:outline-none">
+                            <option value="maxWeight">Max Weight (kg)</option>
+                            <option value="est1rm">Estimated 1RM (kg)</option>
+                            <option value="volume">Session Volume (kg)</option>
+                        </select>
+                    </div>
+                    <div id="detail-graph-container" class="bg-fn-bg border border-fn-border rounded-2xl p-3">
+                        <!-- SVG Chart rendered here -->
+                    </div>
+                    <div id="detail-pr-summary" class="grid grid-cols-3 gap-2 text-center"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 2: EXERCISE PICKER (ADD TO WORKOUT OR NEW EXERCISE) -->
+    <!-- ========================================================= -->
+    <div id="modal-exercise-picker" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm">
+        <div class="bg-fn-card border border-fn-border rounded-t-3xl sm:rounded-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+            <div class="px-4 py-3 border-b border-fn-border flex items-center justify-between">
+                <h2 class="text-sm font-extrabold text-white">Select Exercise to Add</h2>
+                <div class="flex items-center gap-2">
+                    <button onclick="openCreateExerciseModal()" class="px-2.5 py-1 rounded-lg bg-teal-600/20 text-teal-300 border border-teal-700/50 text-xs font-bold">+ Custom</button>
+                    <button onclick="closeModal('modal-exercise-picker')" class="p-1.5 rounded-lg bg-fn-elevated text-slate-300">✕</button>
+                </div>
+            </div>
+            <div class="p-3 border-b border-fn-border space-y-2">
+                <input type="text" id="picker-search" oninput="renderPickerList()" placeholder="Search exercise..." class="w-full px-3 py-2 rounded-xl bg-fn-bg border border-fn-border text-xs text-white focus:border-sky-500 focus:outline-none">
+                <div id="picker-categories" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar"></div>
+            </div>
+            <div id="picker-list" class="p-3 overflow-y-auto flex-1 space-y-1.5"></div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 3: CREATE CUSTOM EXERCISE                           -->
+    <!-- ========================================================= -->
+    <div id="modal-create-exercise" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+        <div class="bg-fn-card border border-fn-border rounded-2xl w-full max-w-sm p-4 space-y-3 shadow-2xl">
+            <h3 class="text-sm font-extrabold text-white">Create Custom Exercise</h3>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Exercise Name</label>
+                <input type="text" id="new-ex-name" placeholder="e.g., Cable Hammer Curl" class="w-full px-3 py-2 rounded-xl bg-fn-bg border border-fn-border text-sm text-white focus:border-sky-500 focus:outline-none">
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Category</label>
+                <select id="new-ex-category" class="w-full px-3 py-2 rounded-xl bg-fn-bg border border-fn-border text-sm text-white focus:border-sky-500 focus:outline-none">
+                    <option value="Back">Back</option>
+                    <option value="Chest">Chest</option>
+                    <option value="Shoulders">Shoulders</option>
+                    <option value="Biceps">Biceps</option>
+                    <option value="Triceps">Triceps</option>
+                    <option value="Legs">Legs</option>
+                    <option value="Cardio">Cardio</option>
+                    <option value="Abs">Abs</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">Type</label>
+                <select id="new-ex-type" class="w-full px-3 py-2 rounded-xl bg-fn-bg border border-fn-border text-sm text-white focus:border-sky-500 focus:outline-none">
+                    <option value="strength">Weight & Reps (kg)</option>
+                    <option value="cardio">Cardio (Incline/Speed & Mins)</option>
+                </select>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeModal('modal-create-exercise')" class="px-3.5 py-2 rounded-xl bg-fn-elevated text-xs font-bold text-slate-300">Cancel</button>
+                <button onclick="saveCustomExercise()" class="px-4 py-2 rounded-xl bg-sky-600 text-xs font-bold text-white">Save Exercise</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 4: DATE JUMP PICKER                                 -->
+    <!-- ========================================================= -->
+    <div id="modal-date-picker" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+        <div class="bg-fn-card border border-fn-border rounded-2xl w-full max-w-xs p-4 space-y-3 shadow-2xl">
+            <h3 class="text-sm font-extrabold text-white">Jump to Date</h3>
+            <input type="date" id="jump-date-input" class="w-full px-3 py-2.5 rounded-xl bg-fn-bg border border-fn-border text-sm text-white focus:border-sky-500 focus:outline-none">
+            <div class="flex items-center justify-between pt-1">
+                <button onclick="jumpToToday()" class="px-3 py-2 rounded-xl bg-teal-950 text-teal-300 border border-teal-800/60 text-xs font-bold">Today</button>
+                <div class="flex gap-2">
+                    <button onclick="closeModal('modal-date-picker')" class="px-3 py-2 rounded-xl bg-fn-elevated text-xs font-bold text-slate-300">Cancel</button>
+                    <button onclick="applyJumpDate()" class="px-3.5 py-2 rounded-xl bg-sky-600 text-xs font-bold text-white">Go</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 5: DAY ACTIONS (LOAD ROUTINE / COPY WORKOUT)        -->
+    <!-- ========================================================= -->
+    <div id="modal-day-actions" class="fixed inset-0 z-50 hidden items-end sm:items-center justify-center bg-black/75 backdrop-blur-sm p-0 sm:p-4">
+        <div class="bg-fn-card border border-fn-border rounded-t-3xl sm:rounded-2xl w-full max-w-md p-4 space-y-3 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-extrabold text-white">Workout Actions</h3>
+                <button onclick="closeModal('modal-day-actions')" class="p-1.5 rounded-lg bg-fn-elevated text-slate-300">✕</button>
+            </div>
+            <div class="space-y-2">
+                <p class="text-[11px] uppercase font-bold text-slate-400">Load CSU-Safe Routine into Today</p>
+                <div id="quick-routines-modal-list" class="space-y-1.5"></div>
+            </div>
+            <div class="pt-2 border-t border-fn-border space-y-2">
+                <p class="text-[11px] uppercase font-bold text-slate-400">Other Actions</p>
+                <button onclick="copyMostRecentWorkout()" class="w-full py-2.5 px-3 rounded-xl bg-fn-elevated hover:bg-slate-700 text-left text-xs font-bold text-slate-200 flex items-center justify-between">
+                    <span>📋 Copy Last Logged Workout to Today</span>
+                    <span class="text-sky-400">Copy</span>
+                </button>
+                <button onclick="saveTodayAsRoutine()" class="w-full py-2.5 px-3 rounded-xl bg-fn-elevated hover:bg-slate-700 text-left text-xs font-bold text-slate-200 flex items-center justify-between">
+                    <span>💾 Save Today's Exercises as Routine</span>
+                    <span class="text-teal-400">Save</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- MODAL 6: CSU SKIN SAFETY PROTOCOL REMINDER                -->
+    <!-- ========================================================= -->
+    <div id="modal-csu-guide" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+        <div class="bg-fn-card border border-teal-800/60 rounded-2xl w-full max-w-md p-4 space-y-3 shadow-2xl">
+            <div class="flex items-center justify-between">
+                <h3 class="text-sm font-extrabold text-teal-400">🛡️ CSU-Safe Gym & Cutting Protocol</h3>
+                <button onclick="closeModal('modal-csu-guide')" class="p-1.5 rounded-lg bg-fn-elevated text-slate-300">✕</button>
+            </div>
+            <ul class="text-xs text-slate-300 space-y-2 leading-relaxed">
+                <li><strong>1. Prevent Heat Spikes:</strong> Rest 2:30–3:00 between sets and replace speed-10 sprints with steady Incline Walks (Speed 4.5, Incline 12–15).</li>
+                <li><strong>2. Prevent Pressure Hives:</strong> Place a soft cotton towel on benches and machine pads; wear loose breathable cotton clothes.</li>
+                <li><strong>3. Sweat & Shower:</strong> Gently <em>pat</em> sweat dry during lifts. Take a cool/lukewarm shower immediately post-gym and apply <strong>Lubrex</strong> or <strong>Ad.Lib</strong>.</li>
+                <li><strong>4. Cutting Targets (92 kg):</strong> ~1,950 kcal/day with 140–160g protein (plain/grilled foods, zero deep-fried or spicy triggers).</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Generic Confirmation Dialog -->
+    <div id="modal-confirm" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/75 backdrop-blur-sm p-4">
+        <div class="bg-fn-card border border-fn-border rounded-2xl w-full max-w-xs p-4 space-y-3 shadow-2xl">
+            <h3 id="confirm-title" class="text-sm font-extrabold text-white">Confirm</h3>
+            <p id="confirm-msg" class="text-xs text-slate-300">Are you sure?</p>
+            <div class="flex justify-end gap-2 pt-1">
+                <button onclick="closeModal('modal-confirm')" class="px-3 py-1.5 rounded-xl bg-fn-elevated text-xs font-bold text-slate-300">Cancel</button>
+                <button id="confirm-ok-btn" class="px-3.5 py-1.5 rounded-xl bg-rose-600 text-xs font-bold text-white">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Toast -->
+    <div id="toast" class="fixed top-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-200">
+        <div id="toast-inner" class="px-4 py-2 rounded-xl bg-slate-800 border border-sky-500/50 text-white text-xs font-bold shadow-xl">
+            Saved
+        </div>
+    </div>
+
+    <script>
+        // =========================================================================
+        // 1. DEFAULT EXERCISE LIBRARY & USER'S CSU-SAFE PUSH/PULL/LEGS ROUTINES
+        // =========================================================================
+        const DEFAULT_EXERCISES = [
+            // Pull Day Exercises
+            { id: "ex_lat_pulldown", name: "Lat Pulldown", category: "Back", type: "strength", tip: "Keep AC/fan airflow nearby; pat forehead sweat gently." },
+            { id: "ex_seated_cable_row", name: "Seated Cable Row", category: "Back", type: "strength", tip: "Place a soft cotton towel over chest/foot pads to avoid pressure hives." },
+            { id: "ex_tbar_row", name: "T-Bar Row", category: "Back", type: "strength", tip: "Use a folded towel over the chest support pad to prevent dermatographism." },
+            { id: "ex_rear_delt_fly", name: "Rear Delt Fly (Machine/DB)", category: "Shoulders", type: "strength", tip: "Avoid pressing sternum hard into machine pad; use towel buffer." },
+            { id: "ex_incline_db_curl", name: "Seated Incline Dumbbell Curl", category: "Biceps", type: "strength", tip: "Lay a clean towel across the incline bench back before leaning." },
+            { id: "ex_hammer_curl", name: "Dumbbell Hammer Curl", category: "Biceps", type: "strength", tip: "Keep rest intervals controlled to avoid core heat spikes." },
+
+            // Push Day Exercises
+            { id: "ex_incline_bb_bench", name: "Incline Barbell Bench Press", category: "Chest", type: "strength", tip: "Use a towel on bench back; take full 2.5 min rest to stay cool." },
+            { id: "ex_incline_db_bench", name: "Incline Dumbbell Bench Press", category: "Chest", type: "strength", tip: "Wear loose breathable cotton tee so shoulder blades don't chafe." },
+            { id: "ex_flat_db_bench", name: "Flat Dumbbell Bench Press", category: "Chest", type: "strength", tip: "Towel over bench pad; steady controlled tempo." },
+            { id: "ex_overhead_press", name: "Overhead Press", category: "Shoulders", type: "strength", tip: "Rest 2:30–3:00 between sets to prevent heat flushing." },
+            { id: "ex_seated_lat_raise", name: "Seated Dumbbell Lateral Raise", category: "Shoulders", type: "strength", tip: "Straight sets (no drop sets) prevent rapid heart-rate and body-heat spikes." },
+            { id: "ex_cable_tri_pushdown", name: "Cable Triceps Pushdown", category: "Triceps", type: "strength", tip: "Pat sweat off arms/neck before gripping rope or bar." },
+            { id: "ex_cable_oh_tri", name: "Cable Overhead Triceps Extension", category: "Triceps", type: "strength", tip: "Keep neck/upper back dry with a soft cotton towel." },
+
+            // Leg Day Exercises
+            { id: "ex_leg_press", name: "Leg Press / Hack Squat", category: "Legs", type: "strength", tip: "Spares upper traps from heavy barbell bar pressure hives." },
+            { id: "ex_barbell_squat", name: "Barbell Squat", category: "Legs", type: "strength", tip: "Use a thick bar pad or folded towel across upper traps." },
+            { id: "ex_hamstring_curl", name: "Hamstring Curl", category: "Legs", type: "strength", tip: "Keep soft towel under thigh/ankle pad to reduce friction." },
+            { id: "ex_smith_lunges", name: "Smith Machine Lunges", category: "Legs", type: "strength", tip: "Place thick pad or folded towel on bar where it touches traps." },
+            { id: "ex_leg_extension", name: "Leg Extension", category: "Legs", type: "strength", tip: "Take full 2-minute rest before moving to incline walk." },
+
+            // Cardio & Abs
+            { id: "ex_incline_walk", name: "Incline Treadmill Walk (12–15 Inc)", category: "Cardio", type: "cardio", tip: "Replaces speed-10 sprint: burns fat steadily without cholinergic heat hives." },
+            { id: "ex_outdoor_walk", name: "Outdoor Cool-Air Walk", category: "Cardio", type: "cardio", tip: "Ideal for Sat/Sun active rest in cool morning or evening air." },
+            { id: "ex_cable_crunch", name: "Cable Crunch", category: "Abs", type: "strength", tip: "Use soft towel around rope behind neck." }
+        ];
+
+        const DEFAULT_ROUTINES = [
+            {
+                id: "routine_pull",
+                name: "Pull Day — CSU Safe (Mon / Thu)",
+                subtitle: "Back, Rear Delts, Biceps & Low-Heat Incline Walk (~50 min)",
+                items: [
+                    { exerciseId: "ex_lat_pulldown", defaultSets: 3, defaultWeight: 45, defaultReps: 10 },
+                    { exerciseId: "ex_seated_cable_row", defaultSets: 3, defaultWeight: 40, defaultReps: 10 },
+                    { exerciseId: "ex_rear_delt_fly", defaultSets: 2, defaultWeight: 10, defaultReps: 12 },
+                    { exerciseId: "ex_incline_db_curl", defaultSets: 3, defaultWeight: 10, defaultReps: 10 },
+                    { exerciseId: "ex_incline_walk", defaultSets: 1, defaultWeight: 4.5, defaultReps: 18 }
+                ]
+            },
+            {
+                id: "routine_push",
+                name: "Push Day — CSU Safe (Tue / Fri)",
+                subtitle: "Upper/Mid Chest, Side Delts, Triceps & Incline Walk (~50 min)",
+                items: [
+                    { exerciseId: "ex_incline_bb_bench", defaultSets: 3, defaultWeight: 40, defaultReps: 10 },
+                    { exerciseId: "ex_flat_db_bench", defaultSets: 2, defaultWeight: 17.5, defaultReps: 10 },
+                    { exerciseId: "ex_seated_lat_raise", defaultSets: 3, defaultWeight: 7.5, defaultReps: 12 },
+                    { exerciseId: "ex_cable_tri_pushdown", defaultSets: 3, defaultWeight: 20, defaultReps: 12 },
+                    { exerciseId: "ex_incline_walk", defaultSets: 1, defaultWeight: 4.5, defaultReps: 18 }
+                ]
+            },
+            {
+                id: "routine_legs",
+                name: "Leg Day — CSU Safe (Wednesday)",
+                subtitle: "Quads, Hamstrings, Glutes & Gentle Incline Walk (~50 min)",
+                items: [
+                    { exerciseId: "ex_leg_press", defaultSets: 3, defaultWeight: 100, defaultReps: 10 },
+                    { exerciseId: "ex_hamstring_curl", defaultSets: 3, defaultWeight: 30, defaultReps: 12 },
+                    { exerciseId: "ex_smith_lunges", defaultSets: 2, defaultWeight: 20, defaultReps: 10 },
+                    { exerciseId: "ex_leg_extension", defaultSets: 2, defaultWeight: 35, defaultReps: 12 },
+                    { exerciseId: "ex_incline_walk", defaultSets: 1, defaultWeight: 4.2, defaultReps: 15 }
+                ]
+            }
+        ];
+
+        // =========================================================================
+        // 2. APPLICATION STATE & STORAGE
+        // =========================================================================
+        const STORAGE_KEY = "fitnotes_csu_pwa_v1";
+
+        let state = {
+            currentDate: getLocalDateISO(new Date()),
+            activeTab: "workout",
+            exercises: [...DEFAULT_EXERCISES],
+            routines: [...DEFAULT_ROUTINES],
+            // logs[YYYY-MM-DD] = [ { entryId, exerciseId, sets: [ { id, weight, reps, done } ] } ]
+            logs: {}
+        };
+
+        let activeDetailExerciseId = null;
+        let activeDetailEntryId = null;
+        let pickerCategory = "All";
+        let dbCategory = "All";
+
+        function getLocalDateISO(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, "0");
+            const d = String(dateObj.getDate()).padStart(2, "0");
+            return `${y}-${m}-${d}`;
+        }
+
+        function parseISODate(isoStr) {
+            const [y, m, d] = isoStr.split("-").map(Number);
+            return new Date(y, m - 1, d);
+        }
+
+        function loadAppState() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    state.exercises = parsed.exercises && parsed.exercises.length ? parsed.exercises : [...DEFAULT_EXERCISES];
+                    state.routines = parsed.routines && parsed.routines.length ? parsed.routines : [...DEFAULT_ROUTINES];
+                    state.logs = parsed.logs || {};
+                }
+            } catch (e) {
+                console.error("Storage load error:", e);
+            }
+        }
+
+        function saveAppState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    exercises: state.exercises,
+                    routines: state.routines,
+                    logs: state.logs
+                }));
+            } catch (e) {
+                console.error("Storage save error:", e);
+            }
+        }
+
+        function getExerciseById(id) {
+            return state.exercises.find(e => e.id === id) || { id, name: "Unknown Exercise", category: "Other", type: "strength", tip: "" };
+        }
+
+        // =========================================================================
+        // 3. DATE NAVIGATION & HEADER RENDERING
+        // =========================================================================
+        function shiftDate(daysDelta) {
+            const d = parseISODate(state.currentDate);
+            d.setDate(d.getDate() + daysDelta);
+            state.currentDate = getLocalDateISO(d);
+            renderWorkoutView();
+        }
+
+        function updateHeaderDateDisplay() {
+            const todayISO = getLocalDateISO(new Date());
+            const yest = new Date(); yest.setDate(yest.getDate() - 1);
+            const tom = new Date(); tom.setDate(tom.getDate() + 1);
+
+            const dObj = parseISODate(state.currentDate);
+            const fullStr = dObj.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+
+            let mainLabel = fullStr;
+            if (state.currentDate === todayISO) mainLabel = "Today";
+            else if (state.currentDate === getLocalDateISO(yest)) mainLabel = "Yesterday";
+            else if (state.currentDate === getLocalDateISO(tom)) mainLabel = "Tomorrow";
+
+            document.getElementById("header-date-main").textContent = mainLabel;
+            document.getElementById("header-date-sub").textContent = fullStr;
+        }
+
+        function openDatePickerModal() {
+            document.getElementById("jump-date-input").value = state.currentDate;
+            openModal("modal-date-picker");
+        }
+
+        function jumpToToday() {
+            state.currentDate = getLocalDateISO(new Date());
+            closeModal("modal-date-picker");
+            renderWorkoutView();
+        }
+
+        function applyJumpDate() {
+            const val = document.getElementById("jump-date-input").value;
+            if (val) {
+                state.currentDate = val;
+                closeModal("modal-date-picker");
+                renderWorkoutView();
+            }
+        }
+
+        // =========================================================================
+        // 4. WORKOUT LOG RENDERING & SET INTERACTIONS
+        // =========================================================================
+        function getPreviousBestMaxWeight(exerciseId, excludeDateISO) {
+            let maxW = 0;
+            Object.keys(state.logs).forEach(dateKey => {
+                if (dateKey >= excludeDateISO) return;
+                (state.logs[dateKey] || []).forEach(entry => {
+                    if (entry.exerciseId === exerciseId) {
+                        entry.sets.forEach(s => {
+                            if (s.done && Number(s.weight) > maxW) {
+                                maxW = Number(s.weight);
+                            }
+                        });
+                    }
+                });
+            });
+            return maxW;
+        }
+
+        function getLastLoggedSetsForExercise(exerciseId) {
+            const sortedDates = Object.keys(state.logs).sort().reverse();
+            for (const d of sortedDates) {
+                if (d === state.currentDate) continue;
+                const found = (state.logs[d] || []).find(e => e.exerciseId === exerciseId);
+                if (found && found.sets && found.sets.length > 0) {
+                    return found.sets;
+                }
+            }
+            return null;
+        }
+
+        function renderWorkoutView() {
+            updateHeaderDateDisplay();
+            const entries = state.logs[state.currentDate] || [];
+            const container = document.getElementById("workout-cards-container");
+            const emptyState = document.getElementById("workout-empty-state");
+
+            // Update Daily Summary Stats
+            let totalSetsDone = 0;
+            let totalVolume = 0;
+            entries.forEach(entry => {
+                const exMeta = getExerciseById(entry.exerciseId);
+                entry.sets.forEach(s => {
+                    if (s.done) {
+                        totalSetsDone++;
+                        if (exMeta.type !== "cardio") {
+                            totalVolume += (Number(s.weight) || 0) * (Number(s.reps) || 0);
+                        }
+                    }
+                });
+            });
+
+            document.getElementById("stat-exercises").textContent = entries.length;
+            document.getElementById("stat-sets").textContent = totalSetsDone;
+            document.getElementById("stat-volume").textContent = `${Math.round(totalVolume).toLocaleString()} kg`;
+
+            if (entries.length === 0) {
+                container.innerHTML = "";
+                emptyState.classList.remove("hidden");
+                return;
+            }
+
+            emptyState.classList.add("hidden");
+
+            container.innerHTML = entries.map(entry => {
+                const ex = getExerciseById(entry.exerciseId);
+                const isCardio = ex.type === "cardio";
+                const prevBest = !isCardio ? getPreviousBestMaxWeight(ex.id, state.currentDate) : 0;
+
+                const setsHTML = entry.sets.map((s, idx) => {
+                    const isPR = !isCardio && s.done && prevBest > 0 && Number(s.weight) > prevBest;
+                    return `
+                        <div class="grid grid-cols-12 items-center gap-1.5 py-1.5 px-2 rounded-xl ${s.done ? 'bg-sky-950/35 border border-sky-800/40' : 'bg-fn-bg/70 border border-fn-border/60'}">
+                            <!-- Set Number & PR Trophy -->
+                            <div class="col-span-2 flex items-center gap-1">
+                                <span class="text-xs font-extrabold ${s.done ? 'text-sky-400' : 'text-slate-400'}">${idx + 1}</span>
+                                ${isPR ? `<span title="New Weight PR!" class="text-xs">🏆</span>` : ''}
+                            </div>
+
+                            <!-- Weight / Speed Input with Quick Tap -->
+                            <div class="col-span-4 flex items-center bg-fn-card border border-fn-border rounded-lg overflow-hidden">
+                                <input type="number" step="0.5" value="${s.weight}"
+                                    onchange="updateSetField('${entry.entryId}', '${s.id}', 'weight', this.value)"
+                                    class="w-full py-1.5 px-1 text-center text-xs sm:text-sm font-extrabold text-white bg-transparent focus:outline-none">
+                                <span class="pr-1.5 text-[10px] font-semibold text-slate-400">${isCardio ? 'spd' : 'kg'}</span>
+                            </div>
+
+                            <!-- Reps / Mins Input -->
+                            <div class="col-span-4 flex items-center bg-fn-card border border-fn-border rounded-lg overflow-hidden">
+                                <input type="number" step="1" value="${s.reps}"
+                                    onchange="updateSetField('${entry.entryId}', '${s.id}', 'reps', this.value)"
+                                    class="w-full py-1.5 px-1 text-center text-xs sm:text-sm font-extrabold text-white bg-transparent focus:outline-none">
+                                <span class="pr-1.5 text-[10px] font-semibold text-slate-400">${isCardio ? 'min' : 'reps'}</span>
+                            </div>
+
+                            <!-- FitNotes Check / Complete Button -->
+                            <div class="col-span-2 flex items-center justify-end gap-1">
+                                <button onclick="toggleSetDone('${entry.entryId}', '${s.id}')"
+                                    aria-label="Complete Set"
+                                    class="w-8 h-8 rounded-lg flex items-center justify-center font-extrabold text-xs transition active:scale-90 ${s.done ? 'bg-teal-500 text-slate-950 shadow-sm' : 'bg-fn-elevated border border-fn-border text-slate-400 hover:border-sky-500'}">
+                                    ✓
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+
+                return `
+                    <article class="bg-fn-card border border-fn-border rounded-2xl overflow-hidden shadow-md">
+                        <!-- Exercise Card Header (Tap name to open FitNotes Track/History/Graph) -->
+                        <div class="px-3.5 py-2.5 bg-fn-elevated/60 border-b border-fn-border flex items-center justify-between gap-2">
+                            <button onclick="openExerciseDetail('${ex.id}', '${entry.entryId}')" class="text-left flex-1 group">
+                                <div class="flex items-center gap-2">
+                                    <h3 class="text-sm sm:text-base font-extrabold text-sky-400 group-hover:text-sky-300 transition">${ex.name}</h3>
+                                    <span class="text-[10px] px-1.5 py-0.5 rounded bg-fn-bg text-slate-400 font-semibold">${ex.category}</span>
+                                </div>
+                            </button>
+                            <div class="flex items-center gap-1">
+                                <button onclick="openExerciseDetail('${ex.id}', '${entry.entryId}')" title="Open Stepper, History & Graph" class="p-1.5 rounded-lg hover:bg-fn-bg text-slate-300 text-xs font-bold">
+                                    📈
+                                </button>
+                                <button onclick="removeExerciseFromDay('${entry.entryId}')" title="Remove Exercise" class="p-1.5 rounded-lg hover:bg-rose-950/60 text-slate-400 hover:text-rose-400 text-xs">
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Column Headers -->
+                        <div class="px-3.5 pt-2 pb-1 grid grid-cols-12 text-[10px] uppercase tracking-wider font-bold text-slate-500">
+                            <div class="col-span-2">Set</div>
+                            <div class="col-span-4 text-center">${isCardio ? 'Speed' : 'Weight'}</div>
+                            <div class="col-span-4 text-center">${isCardio ? 'Minutes' : 'Reps'}</div>
+                            <div class="col-span-2 text-right">Done</div>
+                        </div>
+
+                        <!-- Set Rows -->
+                        <div class="px-2.5 pb-2.5 space-y-1.5">
+                            ${setsHTML}
+                        </div>
+
+                        <!-- Card Footer: + Add Set / - Delete Last Set -->
+                        <div class="px-3.5 py-2 bg-fn-bg/50 border-t border-fn-border/70 flex items-center justify-between text-xs">
+                            <button onclick="addSetToEntry('${entry.entryId}')" class="font-bold text-sky-400 hover:text-sky-300 py-1 px-2 rounded-lg hover:bg-fn-elevated transition">
+                                + Add Set
+                            </button>
+                            ${entry.sets.length > 1 ? `
+                                <button onclick="deleteLastSetFromEntry('${entry.entryId}')" class="font-semibold text-slate-400 hover:text-rose-400 py-1 px-2 rounded-lg hover:bg-fn-elevated transition">
+                                    − Remove Set
+                                </button>
+                            ` : ''}
+                        </div>
+                    </article>
+                `;
+            }).join("");
+        }
+
+        function updateSetField(entryId, setId, field, rawValue) {
+            const entries = state.logs[state.currentDate] || [];
+            const entry = entries.find(e => e.entryId === entryId);
+            if (!entry) return;
+            const setObj = entry.sets.find(s => s.id === setId);
+            if (!setObj) return;
+
+            setObj[field] = Math.max(0, parseFloat(rawValue) || 0);
+            saveAppState();
+            renderWorkoutView();
+        }
+
+        function toggleSetDone(entryId, setId) {
+            const entries = state.logs[state.currentDate] || [];
+            const entry = entries.find(e => e.entryId === entryId);
+            if (!entry) return;
+            const setObj = entry.sets.find(s => s.id === setId);
+            if (!setObj) return;
+
+            setObj.done = !setObj.done;
+            saveAppState();
+            renderWorkoutView();
+
+            // Auto-start 2:30 CSU Cooling Rest Timer when completing a strength set
+            const exMeta = getExerciseById(entry.exerciseId);
+            if (setObj.done && exMeta.type !== "cardio") {
+                startRestTimer(restPresetSeconds);
+                showToast("Set logged! 2:30 CSU cooling rest started.");
+            }
+        }
+
+        function addSetToEntry(entryId) {
+            const entries = state.logs[state.currentDate] || [];
+            const entry = entries.find(e => e.entryId === entryId);
+            if (!entry) return;
+            const lastSet = entry.sets[entry.sets.length - 1] || { weight: 20, reps: 10 };
+            entry.sets.push({
+                id: "s_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+                weight: lastSet.weight,
+                reps: lastSet.reps,
+                done: false
+            });
+            saveAppState();
+            renderWorkoutView();
+        }
+
+        function deleteLastSetFromEntry(entryId) {
+            const entries = state.logs[state.currentDate] || [];
+            const entry = entries.find(e => e.entryId === entryId);
+            if (!entry || entry.sets.length <= 1) return;
+            entry.sets.pop();
+            saveAppState();
+            renderWorkoutView();
+        }
+
+        function removeExerciseFromDay(entryId) {
+            const entries = state.logs[state.currentDate] || [];
+            state.logs[state.currentDate] = entries.filter(e => e.entryId !== entryId);
+            if (state.logs[state.currentDate].length === 0) {
+                delete state.logs[state.currentDate];
+            }
+            saveAppState();
+            renderWorkoutView();
+        }
+
+        // =========================================================================
+        // 5. EXERCISE DETAIL MODAL (TRACK STEPPER / HISTORY / SVG GRAPH)
+        // =========================================================================
+        function openExerciseDetail(exerciseId, entryId = null) {
+            activeDetailExerciseId = exerciseId;
+            activeDetailEntryId = entryId;
+            const ex = getExerciseById(exerciseId);
+
+            document.getElementById("detail-ex-category").textContent = ex.category;
+            document.getElementById("detail-ex-name").textContent = ex.name;
+            document.getElementById("detail-csu-tip").textContent = "❄️ CSU Tip: " + (ex.tip || "Keep rest intervals at 2–3 mins and pat sweat gently.");
+
+            const isCardio = ex.type === "cardio";
+            document.getElementById("detail-weight-label").textContent = isCardio ? "Treadmill Speed (km/h)" : "Weight (kg)";
+            document.getElementById("detail-reps-label").textContent = isCardio ? "Duration (Minutes)" : "Reps";
+
+            // Pre-fill stepper from today's last set or previous workout
+            let defaultW = isCardio ? 4.5 : 20;
+            let defaultR = isCardio ? 15 : 10;
+
+            const todayEntries = state.logs[state.currentDate] || [];
+            const todayEntry = entryId
+                ? todayEntries.find(e => e.entryId === entryId)
+                : todayEntries.find(e => e.exerciseId === exerciseId);
+
+            if (todayEntry && todayEntry.sets.length > 0) {
+                const last = todayEntry.sets[todayEntry.sets.length - 1];
+                defaultW = last.weight;
+                defaultR = last.reps;
+            } else {
+                const prevSets = getLastLoggedSetsForExercise(exerciseId);
+                if (prevSets && prevSets.length > 0) {
+                    defaultW = prevSets[0].weight;
+                    defaultR = prevSets[0].reps;
+                }
+            }
+
+            document.getElementById("detail-weight-input").value = defaultW;
+            document.getElementById("detail-reps-input").value = defaultR;
+
+            switchDetailTab("track");
+            renderDetailTodaySets();
+            openModal("modal-exercise-detail");
+        }
+
+        function switchDetailTab(tabName) {
+            ["track", "history", "graph"].forEach(t => {
+                const btn = document.getElementById(`dtab-${t}`);
+                const panel = document.getElementById(`dpanel-${t}`);
+                if (t === tabName) {
+                    btn.className = "py-2.5 border-b-2 border-sky-500 text-sky-400 transition";
+                    panel.classList.remove("hidden");
+                } else {
+                    btn.className = "py-2.5 border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition";
+                    panel.classList.add("hidden");
+                }
+            });
+
+            if (tabName === "history") renderDetailHistory();
+            if (tabName === "graph") renderDetailGraph();
+        }
+
+        function stepDetailValue(field, delta) {
+            const input = document.getElementById(field === "weight" ? "detail-weight-input" : "detail-reps-input");
+            const curr = parseFloat(input.value) || 0;
+            const next = Math.max(0, Math.round((curr + delta) * 10) / 10);
+            input.value = next;
+        }
+
+        function clearDetailInputs() {
+            document.getElementById("detail-weight-input").value = 0;
+            document.getElementById("detail-reps-input").value = 0;
+        }
+
+        function saveSetFromDetailModal() {
+            const w = parseFloat(document.getElementById("detail-weight-input").value) || 0;
+            const r = parseInt(document.getElementById("detail-reps-input").value) || 0;
+            if (r <= 0) {
+                showToast("Enter at least 1 rep or minute.");
+                return;
+            }
+
+            if (!state.logs[state.currentDate]) state.logs[state.currentDate] = [];
+            let entry = activeDetailEntryId
+                ? state.logs[state.currentDate].find(e => e.entryId === activeDetailEntryId)
+                : state.logs[state.currentDate].find(e => e.exerciseId === activeDetailExerciseId);
+
+            if (!entry) {
+                entry = {
+                    entryId: "ent_" + Date.now(),
+                    exerciseId: activeDetailExerciseId,
+                    sets: []
+                };
+                state.logs[state.currentDate].push(entry);
+                activeDetailEntryId = entry.entryId;
+            }
+
+            // If there is an unchecked set with same or default values, fill it, otherwise append
+            const unchecked = entry.sets.find(s => !s.done);
+            if (unchecked) {
+                unchecked.weight = w;
+                unchecked.reps = r;
+                unchecked.done = true;
+            } else {
+                entry.sets.push({
+                    id: "s_" + Date.now(),
+                    weight: w,
+                    reps: r,
+                    done: true
+                });
+            }
+
+            saveAppState();
+            renderWorkoutView();
+            renderDetailTodaySets();
+
+            const exMeta = getExerciseById(activeDetailExerciseId);
+            if (exMeta.type !== "cardio") {
+                startRestTimer(restPresetSeconds);
+            }
+            showToast(`Logged ${w}${exMeta.type === 'cardio' ? ' spd' : 'kg'} × ${r}`);
+        }
+
+        function renderDetailTodaySets() {
+            const container = document.getElementById("detail-today-sets");
+            const entries = state.logs[state.currentDate] || [];
+            const entry = activeDetailEntryId
+                ? entries.find(e => e.entryId === activeDetailEntryId)
+                : entries.find(e => e.exerciseId === activeDetailExerciseId);
+
+            const exMeta = getExerciseById(activeDetailExerciseId);
+            const isCardio = exMeta.type === "cardio";
+
+            if (!entry || entry.sets.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-500">No sets logged yet today.</p>`;
+                return;
+            }
+
+            container.innerHTML = entry.sets.map((s, i) => `
+                <div class="flex items-center justify-between px-3 py-2 rounded-xl bg-fn-bg border border-fn-border text-xs">
+                    <span class="font-bold text-slate-400">Set ${i + 1}</span>
+                    <span class="font-extrabold text-white">${s.weight} ${isCardio ? 'spd' : 'kg'} × ${s.reps} ${isCardio ? 'min' : 'reps'}</span>
+                    <span class="${s.done ? 'text-teal-400 font-bold' : 'text-slate-500'}">${s.done ? '✓ Done' : 'Pending'}</span>
+                </div>
+            `).join("");
+        }
+
+        function renderDetailHistory() {
+            const container = document.getElementById("detail-history-list");
+            const ex = getExerciseById(activeDetailExerciseId);
+            const isCardio = ex.type === "cardio";
+            const dates = Object.keys(state.logs).sort().reverse();
+            const records = [];
+
+            dates.forEach(d => {
+                (state.logs[d] || []).forEach(ent => {
+                    if (ent.exerciseId === activeDetailExerciseId && ent.sets.length > 0) {
+                        records.push({ date: d, sets: ent.sets });
+                    }
+                });
+            });
+
+            if (records.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">No history recorded for ${ex.name} yet.</p>`;
+                return;
+            }
+
+            container.innerHTML = records.map(rec => {
+                const formattedDate = parseISODate(rec.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+                const setsList = rec.sets.map((s, idx) => `
+                    <div class="flex justify-between text-xs py-0.5">
+                        <span class="text-slate-400">Set ${idx + 1}</span>
+                        <span class="font-bold text-slate-200">${s.weight} ${isCardio ? 'spd' : 'kg'} × ${s.reps} ${isCardio ? 'min' : 'reps'}</span>
+                    </div>
+                `).join("");
+
+                return `
+                    <div class="bg-fn-bg border border-fn-border rounded-xl p-3">
+                        <div class="text-xs font-extrabold text-sky-400 mb-1.5">${formattedDate}</div>
+                        ${setsList}
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function renderDetailGraph() {
+            const container = document.getElementById("detail-graph-container");
+            const prSummary = document.getElementById("detail-pr-summary");
+            const metric = document.getElementById("graph-metric-select").value;
+            const ex = getExerciseById(activeDetailExerciseId);
+            const isCardio = ex.type === "cardio";
+
+            const dates = Object.keys(state.logs).sort();
+            const points = [];
+            let allTimeMaxWeight = 0;
+            let allTimeBest1RM = 0;
+            let allTimeBestVol = 0;
+
+            dates.forEach(d => {
+                let dayMaxW = 0;
+                let dayBest1RM = 0;
+                let dayVol = 0;
+                let hasData = false;
+
+                (state.logs[d] || []).forEach(ent => {
+                    if (ent.exerciseId === activeDetailExerciseId) {
+                        ent.sets.forEach(s => {
+                            if (s.done) {
+                                hasData = true;
+                                const w = Number(s.weight) || 0;
+                                const r = Number(s.reps) || 0;
+                                if (w > dayMaxW) dayMaxW = w;
+                                // Epley 1RM formula
+                                const e1rm = isCardio ? w : Math.round(w * (1 + r / 30) * 10) / 10;
+                                if (e1rm > dayBest1RM) dayBest1RM = e1rm;
+                                dayVol += isCardio ? r : (w * r);
+                            }
+                        });
+                    }
+                });
+
+                if (hasData) {
+                    if (dayMaxW > allTimeMaxWeight) allTimeMaxWeight = dayMaxW;
+                    if (dayBest1RM > allTimeBest1RM) allTimeBest1RM = dayBest1RM;
+                    if (dayVol > allTimeBestVol) allTimeBestVol = dayVol;
+
+                    let val = dayMaxW;
+                    if (metric === "est1rm") val = dayBest1RM;
+                    if (metric === "volume") val = dayVol;
+
+                    points.push({ date: d.slice(5), value: val });
+                }
+            });
+
+            prSummary.innerHTML = `
+                <div class="bg-fn-bg border border-fn-border rounded-xl p-2">
+                    <span class="text-[10px] text-slate-400 block">${isCardio ? 'Top Speed' : 'Max Weight'}</span>
+                    <span class="text-xs font-extrabold text-white">${allTimeMaxWeight} ${isCardio ? 'spd' : 'kg'}</span>
+                </div>
+                <div class="bg-fn-bg border border-fn-border rounded-xl p-2">
+                    <span class="text-[10px] text-slate-400 block">${isCardio ? 'Max Mins' : 'Est. 1RM'}</span>
+                    <span class="text-xs font-extrabold text-sky-400">${isCardio ? allTimeBestVol + ' min' : allTimeBest1RM + ' kg'}</span>
+                </div>
+                <div class="bg-fn-bg border border-fn-border rounded-xl p-2">
+                    <span class="text-[10px] text-slate-400 block">Sessions</span>
+                    <span class="text-xs font-extrabold text-teal-400">${points.length}</span>
+                </div>
+            `;
+
+            if (points.length === 0) {
+                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-8">Complete at least 1 set to see your progress graph.</p>`;
+                return;
+            }
+
+            // Build clean responsive SVG line chart
+            const width = 320;
+            const height = 150;
+            const padX = 28;
+            const padY = 20;
+            const values = points.map(p => p.value);
+            const minVal = Math.min(...values) * 0.9;
+            const maxVal = Math.max(...values) * 1.05 || 10;
+            const range = maxVal - minVal || 1;
+
+            const coords = points.map((p, idx) => {
+                const x = points.length === 1
+                    ? width / 2
+                    : padX + (idx / (points.length - 1)) * (width - padX * 2);
+                const y = height - padY - ((p.value - minVal) / range) * (height - padY * 2);
+                return { x, y, label: p.date, val: p.value };
+            });
+
+            const polylineStr = coords.map(c => `${c.x},${c.y}`).join(" ");
+            const dotsHTML = coords.map(c => `
+                <circle cx="${c.x}" cy="${c.y}" r="4" fill="#0ea5e9" stroke="#0b0f17" stroke-width="1.5"/>
+                <text x="${c.x}" y="${c.y - 8}" text-anchor="middle" fill="#e2e8f0" font-size="9" font-weight="bold">${c.val}</text>
+                <text x="${c.x}" y="${height - 4}" text-anchor="middle" fill="#64748b" font-size="8">${c.label}</text>
+            `).join("");
+
+            container.innerHTML = `
+                <svg viewBox="0 0 ${width} ${height}" class="w-full h-40 overflow-visible">
+                    <line x1="${padX}" y1="${height - padY}" x2="${width - padX}" y2="${height - padY}" stroke="#1e293b" stroke-width="1"/>
+                    ${coords.length > 1 ? `<polyline fill="none" stroke="#0ea5e9" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" points="${polylineStr}"/>` : ''}
+                    ${dotsHTML}
+                </svg>
+            `;
+        }
+
+        // =========================================================================
+        // 6. EXERCISE PICKER & ROUTINES LOADING
+        // =========================================================================
+        function openExercisePicker() {
+            pickerCategory = "All";
+            document.getElementById("picker-search").value = "";
+            renderPickerCategories();
+            renderPickerList();
+            openModal("modal-exercise-picker");
+        }
+
+        function renderPickerCategories() {
+            const cats = ["All", "Back", "Chest", "Shoulders", "Biceps", "Triceps", "Legs", "Cardio", "Abs"];
+            document.getElementById("picker-categories").innerHTML = cats.map(c => `
+                <button onclick="setPickerCategory('${c}')"
+                    class="px-2.5 py-1 rounded-lg text-[11px] font-bold flex-shrink-0 transition ${pickerCategory === c ? 'bg-sky-600 text-white' : 'bg-fn-bg text-slate-400 hover:text-slate-200'}">
+                    ${c}
+                </button>
+            `).join("");
+        }
+
+        function setPickerCategory(cat) {
+            pickerCategory = cat;
+            renderPickerCategories();
+            renderPickerList();
+        }
+
+        function renderPickerList() {
+            const q = document.getElementById("picker-search").value.toLowerCase().trim();
+            const filtered = state.exercises.filter(ex => {
+                const matchCat = pickerCategory === "All" || ex.category === pickerCategory;
+                const matchText = ex.name.toLowerCase().includes(q) || ex.category.toLowerCase().includes(q);
+                return matchCat && matchText;
+            });
+
+            document.getElementById("picker-list").innerHTML = filtered.map(ex => `
+                <button onclick="addExerciseToCurrentDay('${ex.id}')"
+                    class="w-full px-3 py-2.5 rounded-xl bg-fn-bg hover:bg-fn-elevated border border-fn-border/70 flex items-center justify-between text-left transition active:scale-98">
+                    <div>
+                        <div class="text-xs sm:text-sm font-bold text-white">${ex.name}</div>
+                        <div class="text-[10px] text-slate-400">${ex.category}</div>
+                    </div>
+                    <span class="text-sky-400 text-xs font-extrabold">+ Add</span>
+                </button>
+            `).join("");
+        }
+
+        function addExerciseToCurrentDay(exerciseId) {
+            if (!state.logs[state.currentDate]) {
+                state.logs[state.currentDate] = [];
+            }
+            const ex = getExerciseById(exerciseId);
+            const prevSets = getLastLoggedSetsForExercise(exerciseId);
+            const numSets = ex.type === "cardio" ? 1 : 3;
+
+            const newSets = [];
+            for (let i = 0; i < numSets; i++) {
+                const ref = prevSets && prevSets[i] ? prevSets[i] : (prevSets && prevSets[0] ? prevSets[0] : null);
+                newSets.push({
+                    id: "s_" + Date.now() + "_" + i,
+                    weight: ref ? ref.weight : (ex.type === "cardio" ? 4.5 : 20),
+                    reps: ref ? ref.reps : (ex.type === "cardio" ? 15 : 10),
+                    done: false
+                });
+            }
+
+            state.logs[state.currentDate].push({
+                entryId: "ent_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5),
+                exerciseId,
+                sets: newSets
+            });
+
+            saveAppState();
+            closeModal("modal-exercise-picker");
+            renderWorkoutView();
+            showToast(`Added ${ex.name}`);
+        }
+
+        function loadRoutineIntoDate(routineId) {
+            const routine = state.routines.find(r => r.id === routineId);
+            if (!routine) return;
+
+            if (!state.logs[state.currentDate]) {
+                state.logs[state.currentDate] = [];
+            }
+
+            routine.items.forEach((item, idx) => {
+                const prevSets = getLastLoggedSetsForExercise(item.exerciseId);
+                const setsArr = [];
+                for (let s = 0; s < item.defaultSets; s++) {
+                    const ref = prevSets && prevSets[s] ? prevSets[s] : (prevSets && prevSets[0] ? prevSets[0] : null);
+                    setsArr.push({
+                        id: `s_${Date.now()}_${idx}_${s}`,
+                        weight: ref ? ref.weight : item.defaultWeight,
+                        reps: ref ? ref.reps : item.defaultReps,
+                        done: false
+                    });
+                }
+                state.logs[state.currentDate].push({
+                    entryId: `ent_${Date.now()}_${idx}`,
+                    exerciseId: item.exerciseId,
+                    sets: setsArr
+                });
+            });
+
+            saveAppState();
+            closeModal("modal-day-actions");
+            switchTab("workout");
+            renderWorkoutView();
+            showToast(`Loaded ${routine.name.split("—")[0].trim()}`);
+        }
+
+        function openDayActionsModal() {
+            const list = document.getElementById("quick-routines-modal-list");
+            list.innerHTML = state.routines.map(r => `
+                <button onclick="loadRoutineIntoDate('${r.id}')" class="w-full p-2.5 rounded-xl bg-fn-bg hover:bg-fn-elevated border border-fn-border text-left flex items-center justify-between transition">
+                    <div>
+                        <div class="text-xs font-bold text-white">${r.name}</div>
+                        <div class="text-[10px] text-slate-400">${r.items.length} exercises</div>
+                    </div>
+                    <span class="text-xs font-extrabold text-sky-400">Load →</span>
+                </button>
+            `).join("");
+            openModal("modal-day-actions");
+        }
+
+        function copyMostRecentWorkout() {
+            const sortedDates = Object.keys(state.logs).sort().reverse();
+            const sourceDate = sortedDates.find(d => d !== state.currentDate && (state.logs[d] || []).length > 0);
+            if (!sourceDate) {
+                showToast("No previous workout found to copy.");
+                closeModal("modal-day-actions");
+                return;
+            }
+
+            const cloned = JSON.parse(JSON.stringify(state.logs[sourceDate]));
+            cloned.forEach((ent, i) => {
+                ent.entryId = `ent_${Date.now()}_${i}`;
+                ent.sets.forEach((s, j) => {
+                    s.id = `s_${Date.now()}_${i}_${j}`;
+                    s.done = false;
+                });
+            });
+
+            state.logs[state.currentDate] = [...(state.logs[state.currentDate] || []), ...cloned];
+            saveAppState();
+            closeModal("modal-day-actions");
+            renderWorkoutView();
+            showToast(`Copied workout from ${sourceDate}`);
+        }
+
+        function saveTodayAsRoutine() {
+            const todayEntries = state.logs[state.currentDate] || [];
+            if (todayEntries.length === 0) {
+                showToast("Add exercises to today first.");
+                closeModal("modal-day-actions");
+                return;
+            }
+            const name = "Custom Routine (" + state.currentDate + ")";
+            const items = todayEntries.map(ent => ({
+                exerciseId: ent.exerciseId,
+                defaultSets: ent.sets.length,
+                defaultWeight: ent.sets[0] ? ent.sets[0].weight : 20,
+                defaultReps: ent.sets[0] ? ent.sets[0].reps : 10
+            }));
+            state.routines.push({
+                id: "routine_" + Date.now(),
+                name,
+                subtitle: `${items.length} exercises • Custom saved split`,
+                items
+            });
+            saveAppState();
+            closeModal("modal-day-actions");
+            showToast("Saved today's workout as a Routine!");
+        }
+
+        // =========================================================================
+        // 7. ROUTINES TAB & EXERCISE DATABASE TAB RENDERING
+        // =========================================================================
+        function renderRoutinesTab() {
+            const container = document.getElementById("routines-list-container");
+            container.innerHTML = state.routines.map(r => {
+                const exNames = r.items.map(it => `${getExerciseById(it.exerciseId).name} (${it.defaultSets} sets)`).join(" • ");
+                return `
+                    <div class="bg-fn-card border border-fn-border rounded-2xl p-4 space-y-3 shadow-md">
+                        <div class="flex items-start justify-between gap-2">
+                            <div>
+                                <h3 class="text-sm sm:text-base font-extrabold text-white">${r.name}</h3>
+                                <p class="text-xs text-slate-400 mt-0.5">${r.subtitle}</p>
+                            </div>
+                            <button onclick="loadRoutineIntoDate('${r.id}')" class="flex-shrink-0 px-3.5 py-2 rounded-xl bg-sky-600 hover:bg-sky-500 active:scale-95 text-white text-xs font-bold transition">
+                                Start Workout
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-300 bg-fn-bg/80 border border-fn-border/70 rounded-xl p-2.5 leading-relaxed">
+                            ${exNames}
+                        </p>
+                    </div>
+                `;
+            }).join("");
+        }
+
+        function renderExerciseDatabase() {
+            const cats = ["All", "Back", "Chest", "Shoulders", "Biceps", "Triceps", "Legs", "Cardio", "Abs"];
+            document.getElementById("db-category-pills").innerHTML = cats.map(c => `
+                <button onclick="setDbCategory('${c}')"
+                    class="px-3 py-1.5 rounded-xl text-xs font-bold flex-shrink-0 transition ${dbCategory === c ? 'bg-sky-600 text-white' : 'bg-fn-card border border-fn-border text-slate-400 hover:text-slate-200'}">
+                    ${c}
+                </button>
+            `).join("");
+
+            const q = document.getElementById("db-search-input").value.toLowerCase().trim();
+            const filtered = state.exercises.filter(ex => {
+                const matchCat = dbCategory === "All" || ex.category === dbCategory;
+                const matchText = ex.name.toLowerCase().includes(q) || ex.category.toLowerCase().includes(q);
+                return matchCat && matchText;
+            });
+
+            document.getElementById("db-exercises-list").innerHTML = filtered.map(ex => `
+                <button onclick="openExerciseDetail('${ex.id}')"
+                    class="w-full px-3.5 py-3 rounded-xl bg-fn-card hover:bg-fn-elevated border border-fn-border flex items-center justify-between text-left transition">
+                    <div>
+                        <div class="text-sm font-bold text-white">${ex.name}</div>
+                        <div class="text-[11px] text-slate-400">${ex.category}</div>
+                    </div>
+                    <span class="text-xs font-bold text-sky-400">History & Graph →</span>
+                </button>
+            `).join("");
+        }
+
+        function setDbCategory(cat) {
+            dbCategory = cat;
+            renderExerciseDatabase();
+        }
+
+        function openCreateExerciseModal() {
+            document.getElementById("new-ex-name").value = "";
+            openModal("modal-create-exercise");
+        }
+
+        function saveCustomExercise() {
+            const name = document.getElementById("new-ex-name").value.trim();
+            const category = document.getElementById("new-ex-category").value;
+            const type = document.getElementById("new-ex-type").value;
+            if (!name) {
+                showToast("Please enter an exercise name.");
+                return;
+            }
+            const newEx = {
+                id: "ex_custom_" + Date.now(),
+                name,
+                category,
+                type,
+                tip: "Keep rest at 2–3 mins and pat sweat dry gently."
+            };
+            state.exercises.unshift(newEx);
+            saveAppState();
+            closeModal("modal-create-exercise");
+            renderPickerList();
+            renderExerciseDatabase();
+            showToast(`Created ${name}`);
+        }
+
+        // =========================================================================
+        // 8. TAB SWITCHING & REST TIMER
+        // =========================================================================
+        function switchTab(tab) {
+            state.activeTab = tab;
+            const views = ["workout", "routines", "exercises", "backup"];
+            views.forEach(v => {
+                const el = document.getElementById(`view-${v}`);
+                const nav = document.getElementById(`nav-${v}`);
+                if (v === tab) {
+                    el.classList.remove("hidden");
+                    nav.classList.add("text-sky-400", "font-bold");
+                    nav.classList.remove("text-slate-400", "font-medium");
+                } else {
+                    el.classList.add("hidden");
+                    nav.classList.remove("text-sky-400", "font-bold");
+                    nav.classList.add("text-slate-400", "font-medium");
+                }
+            });
+
+            const headerWorkout = document.getElementById("header-workout");
+            const headerSecondary = document.getElementById("header-secondary");
+            const secBtn = document.getElementById("secondary-action-btn");
+
+            if (tab === "workout") {
+                headerWorkout.classList.remove("hidden");
+                headerSecondary.classList.add("hidden");
+                renderWorkoutView();
+            } else {
+                headerWorkout.classList.add("hidden");
+                headerSecondary.classList.remove("hidden");
+                secBtn.classList.add("hidden");
+
+                if (tab === "routines") {
+                    document.getElementById("secondary-title").textContent = "Routines";
+                    document.getElementById("secondary-subtitle").textContent = "Pre-loaded CSU-Safe Push / Pull / Legs templates";
+                    renderRoutinesTab();
+                } else if (tab === "exercises") {
+                    document.getElementById("secondary-title").textContent = "Exercise Library";
+                    document.getElementById("secondary-subtitle").textContent = "Tap any exercise to view History & 1RM Graphs";
+                    secBtn.classList.remove("hidden");
+                    secBtn.textContent = "+ New Exercise";
+                    secBtn.onclick = openCreateExerciseModal;
+                    renderExerciseDatabase();
+                } else if (tab === "backup") {
+                    document.getElementById("secondary-title").textContent = "Backup & iOS Install";
+                    document.getElementById("secondary-subtitle").textContent = "Export FitNotes CSV or JSON anytime";
+                }
+            }
+        }
+
+        // Rest Timer (2:30 CSU Cooling Default)
+        let restPresetSeconds = 150;
+        let restRemaining = 150;
+        let restInterval = null;
+        let restRunning = false;
+
+        function setRestPreset(secs) {
+            restPresetSeconds = secs;
+            startRestTimer(secs);
+        }
+
+        function toggleRestTimer() {
+            if (restRunning) {
+                clearInterval(restInterval);
+                restRunning = false;
+                document.getElementById("rest-toggle-btn").textContent = "Resume";
+            } else {
+                startRestTimer(restRemaining > 0 ? restRemaining : restPresetSeconds);
+            }
+        }
+
+        function startRestTimer(secs) {
+            clearInterval(restInterval);
+            restRemaining = secs;
+            restRunning = true;
+            updateRestDisplay();
+            document.getElementById("rest-toggle-btn").textContent = "Pause";
+
+            restInterval = setInterval(() => {
+                restRemaining--;
+                updateRestDisplay();
+                if (restRemaining <= 0) {
+                    clearInterval(restInterval);
+                    restRunning = false;
+                    restRemaining = restPresetSeconds;
+                    updateRestDisplay();
+                    document.getElementById("rest-toggle-btn").textContent = "Start";
+                    playBeep();
+                    showToast("❄️ Rest complete! Core temperature cooled.");
+                }
+            }, 1000);
+        }
+
+        function updateRestDisplay() {
+            const m = Math.floor(restRemaining / 60);
+            const s = restRemaining % 60;
+            document.getElementById("rest-display").textContent = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+        }
+
+        async function playBeep() {
+            try {
+                if (typeof Tone !== "undefined") {
+                    await Tone.start();
+                    const synth = new Tone.Synth().toDestination();
+                    const now = Tone.now();
+                    synth.triggerAttackRelease("A5", "16n", now);
+                    synth.triggerAttackRelease("E6", "8n", now + 0.15);
+                }
+            } catch (e) {}
+        }
+
+        // =========================================================================
+        // 9. FITNOTES CSV & JSON BACKUP EXPORT / IMPORT
+        // =========================================================================
+        function exportCSV() {
+            // Exact FitNotes CSV format: Date,Exercise,Category,Weight (kgs),Reps,Distance,Distance Unit,Time
+            let rows = ["Date,Exercise,Category,Weight (kgs),Reps,Distance,Distance Unit,Time"];
+            const dates = Object.keys(state.logs).sort();
+
+            dates.forEach(d => {
+                (state.logs[d] || []).forEach(ent => {
+                    const ex = getExerciseById(ent.exerciseId);
+                    ent.sets.forEach(s => {
+                        if (s.done) {
+                            const safeName = `"${ex.name.replace(/"/g, '""')}"`;
+                            if (ex.type === "cardio") {
+                                rows.push(`${d},${safeName},${ex.category},0,0,${s.weight},km,${s.reps}:00`);
+                            } else {
+                                rows.push(`${d},${safeName},${ex.category},${s.weight},${s.reps},,,`);
+                            }
+                        }
+                    });
+                });
+            });
+
+            downloadBlob(rows.join("\n"), `FitNotes_Export_${getLocalDateISO(new Date())}.csv`, "text/csv;charset=utf-8;");
+            showToast("Exported FitNotes CSV!");
+        }
+
+        function exportJSON() {
+            const payload = JSON.stringify({
+                app: "FitNotes_Web_CSU",
+                exportedAt: new Date().toISOString(),
+                exercises: state.exercises,
+                routines: state.routines,
+                logs: state.logs
+            }, null, 2);
+
+            downloadBlob(payload, `FitNotes_Backup_${getLocalDateISO(new Date())}.json`, "application/json");
+            showToast("Exported full JSON backup!");
+        }
+
+        function downloadBlob(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function handleImportFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                try {
+                    if (file.name.endsWith(".json")) {
+                        const parsed = JSON.parse(text);
+                        if (parsed.logs) {
+                            state.logs = parsed.logs;
+                            if (parsed.exercises) state.exercises = parsed.exercises;
+                            if (parsed.routines) state.routines = parsed.routines;
+                            saveAppState();
+                            renderWorkoutView();
+                            showToast("JSON backup restored!");
+                        }
+                    } else if (file.name.endsWith(".csv")) {
+                        importFitNotesCSV(text);
+                    }
+                } catch (err) {
+                    showToast("Invalid backup file format.");
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function importFitNotesCSV(csvText) {
+            const lines = csvText.split(/\r?\n/).slice(1);
+            let importedCount = 0;
+
+            lines.forEach(line => {
+                if (!line.trim()) return;
+                // Simple CSV parser handling quoted exercise names
+                const parts = line.match(/(".*?"|[^",\s]+)(?=\s*,|\s*$)/g);
+                if (!parts || parts.length < 5) return;
+
+                const dateStr = parts[0].replace(/"/g, "").trim();
+                const exName = parts[1].replace(/"/g, "").trim();
+                const cat = parts[2].replace(/"/g, "").trim() || "Other";
+                const weight = parseFloat(parts[3]) || 0;
+                const reps = parseInt(parts[4]) || 0;
+
+                if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return;
+
+                let exObj = state.exercises.find(e => e.name.toLowerCase() === exName.toLowerCase());
+                if (!exObj) {
+                    exObj = { id: "ex_imp_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5), name: exName, category: cat, type: "strength", tip: "" };
+                    state.exercises.push(exObj);
+                }
+
+                if (!state.logs[dateStr]) state.logs[dateStr] = [];
+                let ent = state.logs[dateStr].find(e => e.exerciseId === exObj.id);
+                if (!ent) {
+                    ent = { entryId: "ent_" + Date.now() + "_" + Math.random().toString(36).slice(2, 5), exerciseId: exObj.id, sets: [] };
+                    state.logs[dateStr].push(ent);
+                }
+
+                ent.sets.push({
+                    id: "s_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6),
+                    weight,
+                    reps,
+                    done: true
+                });
+                importedCount++;
+            });
+
+            saveAppState();
+            renderWorkoutView();
+            showToast(`Imported ${importedCount} sets from FitNotes CSV!`);
+        }
+
+        function confirmFactoryReset() {
+            document.getElementById("confirm-title").textContent = "Reset All Data?";
+            document.getElementById("confirm-msg").textContent = "This will delete all logged sets and restore the default CSU routines.";
+            document.getElementById("confirm-ok-btn").onclick = () => {
+                localStorage.removeItem(STORAGE_KEY);
+                state.exercises = [...DEFAULT_EXERCISES];
+                state.routines = [...DEFAULT_ROUTINES];
+                state.logs = {};
+                saveAppState();
+                closeModal("modal-confirm");
+                switchTab("workout");
+                showToast("App reset to defaults.");
+            };
+            openModal("modal-confirm");
+        }
+
+        // =========================================================================
+        // 10. MODAL & TOAST HELPERS
+        // =========================================================================
+        function openModal(id) {
+            const el = document.getElementById(id);
+            el.classList.remove("hidden");
+            el.classList.add("flex");
+        }
+
+        function closeModal(id) {
+            const el = document.getElementById(id);
+            el.classList.add("hidden");
+            el.classList.remove("flex");
+        }
+
+        function openCsuReminderModal() {
+            openModal("modal-csu-guide");
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById("toast");
+            document.getElementById("toast-inner").textContent = msg;
+            toast.classList.remove("opacity-0");
+            setTimeout(() => {
+                toast.classList.add("opacity-0");
+            }, 2600);
+        }
+
+        // Boot App
+        window.addEventListener("DOMContentLoaded", () => {
+            loadAppState();
+            renderWorkoutView();
+        });
+    </script>
+</body>
+</html>
